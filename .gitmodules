@@ -1,0 +1,3 @@
+[submodule "services/cms"]
+	path = services/cms
+	url = git@github.com:risky2k1/the-one-who-dutifully-keeps.git
