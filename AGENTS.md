@@ -11,6 +11,8 @@
 ├── compose.prod.yaml     # Production overrides (prod target, named volumes, restart policies)
 ├── .env.example          # Template for all runtime environment variables (no secrets)
 ├── Makefile              # Self-documenting developer workflow targets
+├── .agents/              # AI Agent rules (.agents/rules/) & progressive skills (.agents/skills/)
+├── .claude/              # Symlinked rules & skills for Claude Code compatibility
 ├── contracts/            # Shared API schemas (OpenAPI, Protobuf, JSON Schema)
 ├── docs/                 # Architecture Decision Records (decisions.md) & system docs
 ├── infra/
