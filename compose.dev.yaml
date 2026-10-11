@@ -1,0 +1,27 @@
+services:
+  mysql:
+    ports:
+      - "${DB_FORWARD_PORT:-3306}:3306"
+
+  redis:
+    ports:
+      - "${REDIS_FORWARD_PORT:-6379}:6379"
+
+  cms:
+    build:
+      target: dev
+    volumes:
+      - ./services/cms:/var/www/html
+    environment:
+      XDEBUG_MODE: ${XDEBUG_MODE:-off}
+      XDEBUG_CLIENT_HOST: ${XDEBUG_CLIENT_HOST:-host.docker.internal}
+      XDEBUG_CLIENT_PORT: ${XDEBUG_CLIENT_PORT:-9003}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  nginx:
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./services/cms/public:/var/www/html/public:ro

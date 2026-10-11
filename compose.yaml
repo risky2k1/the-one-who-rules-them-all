@@ -1,0 +1,130 @@
+services:
+  mysql:
+    image: mysql:8.4.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./infra/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - backend
+
+  redis:
+    image: redis:7.4.2-alpine
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  cms:
+    build:
+      context: ./services/cms
+      dockerfile: docker/php/Dockerfile
+      target: dev
+    env_file:
+      - .env
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm -t || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  nginx:
+    image: nginx:1.27.4-alpine
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./services/cms/public:/var/www/html/public:ro
+    depends_on:
+      cms:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/nginx-health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  # ============================================================================
+  # Future Service Placeholders (activated via Docker Compose profiles)
+  # Example: docker compose --profile fe --profile go up -d
+  # ============================================================================
+
+  # fe:
+  #   profiles: ["fe"]
+  #   build:
+  #     context: ./services/fe
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "${FE_PORT:-3000}:3000"
+  #   networks:
+  #     - backend
+
+  # go:
+  #   profiles: ["go"]
+  #   build:
+  #     context: ./services/go
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "${GO_PORT:-8081}:8081"
+  #   networks:
+  #     - backend
+
+  # rust:
+  #   profiles: ["rust"]
+  #   build:
+  #     context: ./services/rust
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "${RUST_PORT:-8082}:8082"
+  #   networks:
+  #     - backend
+
+  # nosql:
+  #   profiles: ["nosql"]
+  #   build:
+  #     context: ./services/nosql
+  #     dockerfile: Dockerfile
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - "${NOSQL_PORT:-8083}:8083"
+  #   networks:
+  #     - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
