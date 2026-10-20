@@ -22,6 +22,11 @@ services:
       - cms_public:/var/www/html/public:ro
       - cms_storage:/var/www/html/storage:ro
 
+  fe:
+    build:
+      target: prod
+    restart: unless-stopped
+
 volumes:
   cms_public:
   cms_storage:

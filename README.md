@@ -14,7 +14,7 @@ The project follows a strict **BUILD vs. RUN** separation:
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `the-one-who-rules-them-all` | `/` | Master Orchestrator, Gateway & Infra | Docker Compose v2, Nginx, Make | `8080` | *(core)* |
 | `the-one-who-dutifully-keeps` | `services/cms` | CMS & Editorial Admin Backend | PHP 8.4 / Laravel 13 (Botble CMS) | `8080` | *(core)* |
-| *(reserved)* | `services/fe` | Storefront / Web Frontend | TypeScript / Next.js | `3000` | `fe` |
+| `the-one-who-paints-the-world` | `services/fe` | Public Web Storefront & Interactive 3D Portfolio | TypeScript / Next.js 14 (React Three Fiber) | `3000` | `fe` |
 | *(reserved)* | `services/go` | High-Throughput Core API | Go | `8081` | `go` |
 | *(reserved)* | `services/rust` | Compute / Worker Service | Rust | `8082` | `rust` |
 | *(reserved)* | `services/nosql` | Document / NoSQL API Service | Polyglot / NoSQL | `8083` | `nosql` |

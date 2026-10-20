@@ -19,7 +19,8 @@
 │   ├── mysql/init/       # MySQL initialization scripts
 │   └── nginx/            # Reverse proxy & FastCGI gateway configurations
 └── services/
-    └── cms/              # Submodule: the-one-who-dutifully-keeps (Botble CMS / Laravel)
+    ├── cms/              # Submodule: the-one-who-dutifully-keeps (Botble CMS / Laravel)
+    └── fe/               # Submodule: the-one-who-paints-the-world (Next.js / 3D Portfolio)
 ```
 
 ## Service Naming Table
@@ -28,7 +29,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `the-one-who-rules-them-all` | `/` (master repo) | System Orchestrator, Gateway, Infra & Contracts | Docker Compose, Nginx, Make | `8080` (Nginx HTTP) | *(core)* |
 | `the-one-who-dutifully-keeps` | `services/cms` | Content Management System & Admin Backend | PHP 8.4 / Laravel 13 (Botble CMS) | `8080` (via Nginx) | *(core)* |
-| *(reserved)* | `services/fe` | Public Web Storefront / SSR Frontend | TypeScript / Next.js | `3000` | `fe` |
+| `the-one-who-paints-the-world` | `services/fe` | Public Web Storefront & Interactive 3D Portfolio | TypeScript / Next.js 14 (React Three Fiber) | `3000` | `fe` |
 | *(reserved)* | `services/go` | High-Throughput Core API Service | Go | `8081` | `go` |
 | *(reserved)* | `services/rust` | Compute / Event Worker Service | Rust | `8082` | `rust` |
 | *(reserved)* | `services/nosql` | Document / NoSQL API Service | Polyglot / NoSQL | `8083` | `nosql` |
