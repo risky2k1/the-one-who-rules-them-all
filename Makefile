@@ -3,6 +3,16 @@
 ENV ?= local
 COMPOSE := docker compose -f compose.yaml -f compose.$(ENV).yaml
 
+# Allow passing arguments without cmd="...", e.g.: make artisan cms:install
+ifeq ($(firstword $(MAKECMDGOALS)),$(filter $(firstword $(MAKECMDGOALS)),artisan composer pnpm-fe))
+  RUN_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+  %:
+	@:
+endif
+ARTISAN_CMD := $(if $(cmd),$(cmd),$(RUN_ARGS))
+COMPOSER_CMD := $(if $(cmd),$(cmd),$(RUN_ARGS))
+PNPM_CMD := $(if $(cmd),$(cmd),$(RUN_ARGS))
+
 .PHONY: help up down restart logs ps build shell-cms artisan composer shell-fe pnpm-fe sync clean
 
 help: ## Show available Make targets
@@ -29,20 +39,20 @@ build: ## Build or rebuild service images
 shell-cms: ## Open an interactive shell inside the cms container
 	$(COMPOSE) exec cms sh
 
-artisan: ## Run an Artisan command in cms (usage: make artisan cmd="migrate")
-	@if [ -z "$(cmd)" ]; then echo "Usage: make artisan cmd=\"<command>\""; exit 1; fi
-	$(COMPOSE) exec -u www-data cms php artisan $(cmd)
+artisan: ## Run an Artisan command in cms (usage: make artisan cms:install or make artisan cmd="migrate")
+	@if [ -z "$(strip $(ARTISAN_CMD))" ]; then echo "Usage: make artisan <command> (or cmd=\"<command>\")"; exit 1; fi
+	$(COMPOSE) exec -u www-data cms php artisan $(ARTISAN_CMD)
 
-composer: ## Run a Composer command in cms (usage: make composer cmd="dump-autoload")
-	@if [ -z "$(cmd)" ]; then echo "Usage: make composer cmd=\"<command>\""; exit 1; fi
-	$(COMPOSE) exec cms composer $(cmd)
+composer: ## Run a Composer command in cms (usage: make composer dump-autoload)
+	@if [ -z "$(strip $(COMPOSER_CMD))" ]; then echo "Usage: make composer <command> (or cmd=\"<command>\")"; exit 1; fi
+	$(COMPOSE) exec cms composer $(COMPOSER_CMD)
 
 shell-fe: ## Open an interactive shell inside the fe container
 	$(COMPOSE) exec fe sh
 
-pnpm-fe: ## Run a pnpm command in fe (usage: make pnpm-fe cmd="test")
-	@if [ -z "$(cmd)" ]; then echo "Usage: make pnpm-fe cmd=\"<command>\""; exit 1; fi
-	$(COMPOSE) exec fe pnpm $(cmd)
+pnpm-fe: ## Run a pnpm command in fe (usage: make pnpm-fe test)
+	@if [ -z "$(strip $(PNPM_CMD))" ]; then echo "Usage: make pnpm-fe <command> (or cmd=\"<command>\")"; exit 1; fi
+	$(COMPOSE) exec fe pnpm $(PNPM_CMD)
 
 sync: ## Initialize and update all git submodules to latest remote commit
 	git submodule update --init --recursive --remote
