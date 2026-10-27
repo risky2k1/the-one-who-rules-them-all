@@ -1,0 +1,1702 @@
+openapi: 3.1.0
+info:
+  title: Kids Math Practice REST API
+  description: REST APIs for the Kids Math practice area (/kids and /kids/parent) supporting parent management, child practice, adaptive difficulty, and session evaluation.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8081/api/v1/kids
+    description: Local development via Nginx Gateway
+  - url: /api/v1/kids
+    description: Next.js internal proxy rewrite
+
+paths:
+  /auth/login:
+    post:
+      summary: Parent login
+      description: Authenticates parent credentials and issues both parent and device tokens.
+      operationId: loginParent
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, device_name]
+              properties:
+                username:
+                  type: string
+                  example: parent1
+                password:
+                  type: string
+                  example: secret123
+                device_name:
+                  type: string
+                  example: iPad Living Room
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /auth/logout:
+    post:
+      summary: Parent logout
+      description: Revokes the current parent session token.
+      operationId: logoutParent
+      security:
+        - parentToken: []
+      responses:
+        '200':
+          description: Successful logout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /device/unlock:
+    post:
+      summary: Unlock parent session from trusted device
+      description: Returns a new parent token using device token and either parent PIN or password.
+      operationId: unlockDevice
+      security:
+        - deviceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pin:
+                  type: string
+                  pattern: '^\d{4,6}$'
+                  example: '1234'
+                password:
+                  type: string
+                  example: secret123
+      responses:
+        '200':
+          description: Device unlocked, parent token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnlockResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /device/children:
+    get:
+      summary: List children for trusted device
+      description: Returns cards for all children owned by the parent of this device.
+      operationId: listDeviceChildren
+      security:
+        - deviceToken: []
+      responses:
+        '200':
+          description: List of child cards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildCardListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /device/children/{child}/session:
+    post:
+      summary: Start kid session for selected child
+      description: Exchanges device token for a scoped child session token.
+      operationId: startKidSession
+      security:
+        - deviceToken: []
+      parameters:
+        - name: child
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Kid session started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartKidSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /me:
+    get:
+      summary: Kid dashboard home
+      description: Returns profile, streak, lock status, and pending assignments for the authenticated child.
+      operationId: getKidHome
+      security:
+        - kidToken: []
+      responses:
+        '200':
+          description: Kid home details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KidHomeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /me/topics:
+    get:
+      summary: List eligible practice topics
+      description: Returns approved, enabled topics for the child's grade with the child's current difficulty level.
+      operationId: listKidTopics
+      security:
+        - kidToken: []
+      responses:
+        '200':
+          description: Eligible topics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /me/rewards:
+    get:
+      summary: List earned rewards
+      description: Returns all stickers/rewards earned by the authenticated child.
+      operationId: listKidRewards
+      security:
+        - kidToken: []
+      responses:
+        '200':
+          description: Earned rewards
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RewardListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /me/sessions:
+    post:
+      summary: Start practice or assignment session
+      description: Creates a new practice session for a topic or starts an assigned work session. Answers are never returned in this payload.
+      operationId: startPracticeSession
+      security:
+        - kidToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                topic_id:
+                  type: integer
+                  example: 5
+                assignment_id:
+                  type: integer
+                  example: 2
+      responses:
+        '201':
+          description: Practice session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PracticeSessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '423':
+          $ref: '#/components/responses/PracticeLocked'
+
+  /me/sessions/{session}/questions/{question}/answer:
+    post:
+      summary: Submit question answer
+      description: Evaluates submitted answer against expected answer without leaking answers unless attempts are exhausted.
+      operationId: submitAnswer
+      security:
+        - kidToken: []
+      parameters:
+        - name: session
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+        - name: question
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 42
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  example: '85'
+      responses:
+        '200':
+          description: Answer evaluation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnswerResultResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /me/sessions/{session}/complete:
+    post:
+      summary: Complete practice session
+      description: Finalizes session, updates difficulty levels, schedules spaced reviews, updates streaks, and awards stickers.
+      operationId: completePracticeSession
+      security:
+        - kidToken: []
+      parameters:
+        - name: session
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      responses:
+        '200':
+          description: Session summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionSummaryResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /parent/children:
+    get:
+      summary: List parent's children
+      description: Returns complete details of all children owned by the parent.
+      operationId: listParentChildren
+      security:
+        - parentToken: []
+      responses:
+        '200':
+          description: List of children
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: Create child profile
+      description: Adds a new child under the parent account.
+      operationId: createParentChild
+      security:
+        - parentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChildInput'
+      responses:
+        '201':
+          description: Child created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /parent/children/{child}:
+    patch:
+      summary: Update child profile
+      description: Modifies child settings (grade, textbook, disabled topics, assigned-first rule).
+      operationId: updateParentChild
+      security:
+        - parentToken: []
+      parameters:
+        - name: child
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChildInputPartial'
+      responses:
+        '200':
+          description: Child updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /parent/pin:
+    put:
+      summary: Set or update parent PIN
+      description: Updates parent quick-unlock PIN. Requires current parent account password.
+      operationId: setParentPin
+      security:
+        - parentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin, password]
+              properties:
+                pin:
+                  type: string
+                  pattern: '^\d{4,6}$'
+                  example: '1234'
+                password:
+                  type: string
+                  example: secret123
+      responses:
+        '200':
+          description: PIN updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /parent/topics:
+    get:
+      summary: List approved curriculum topics
+      description: Returns approved curriculum topics optionally filtered by grade.
+      operationId: listParentTopics
+      security:
+        - parentToken: []
+      parameters:
+        - name: grade
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          example: 2
+      responses:
+        '200':
+          description: Topic tree
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /parent/assignments:
+    get:
+      summary: List parent assignments
+      description: Returns all assignments created by the parent, optionally filtered by child.
+      operationId: listParentAssignments
+      security:
+        - parentToken: []
+      parameters:
+        - name: child_id
+          in: query
+          required: false
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: List of assignments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      summary: Create assignment
+      description: Creates a new practice assignment for a child.
+      operationId: createParentAssignment
+      security:
+        - parentToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentInput'
+      responses:
+        '201':
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /parent/assignments/{assignment}:
+    patch:
+      summary: Update assignment
+      description: Modifies assignment parameters.
+      operationId: updateParentAssignment
+      security:
+        - parentToken: []
+      parameters:
+        - name: assignment
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignmentInputPartial'
+      responses:
+        '200':
+          description: Assignment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+    delete:
+      summary: Delete assignment
+      description: Removes an assignment owned by the parent.
+      operationId: deleteParentAssignment
+      security:
+        - parentToken: []
+      parameters:
+        - name: assignment
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Assignment deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /parent/children/{child}/results:
+    get:
+      summary: Get assignment completion results
+      description: Returns first and latest scores, attempt counts, and completion stats.
+      operationId: getChildResults
+      security:
+        - parentToken: []
+      parameters:
+        - name: child
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+        - name: assignment_id
+          in: query
+          required: false
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Assignment results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignmentResultListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /parent/children/{child}/weak-skills:
+    get:
+      summary: Get weak skill diagnostics
+      description: Returns skills with accuracy under 70% (min 5 attempts in 30 days) ordered by accuracy ascending.
+      operationId: getChildWeakSkills
+      security:
+        - parentToken: []
+      parameters:
+        - name: child
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 1
+      responses:
+        '200':
+          description: Weak skill diagnostics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeakSkillListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /parent/sessions/{session}:
+    get:
+      summary: Review completed session
+      description: Returns full review of a session with correct answers, solutions, and child submissions.
+      operationId: getParentSessionReview
+      security:
+        - parentToken: []
+      parameters:
+        - name: session
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 10
+      responses:
+        '200':
+          description: Session review
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionReviewResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /parent/questions/{question}/report:
+    post:
+      summary: Report problematic question
+      description: Submits a flag for super-admin review with reproduction parameters.
+      operationId: reportQuestion
+      security:
+        - parentToken: []
+      parameters:
+        - name: question
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 42
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  example: Gợi ý bước 2 tính sai phép cộng.
+      responses:
+        '200':
+          description: Question reported
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NullResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  securitySchemes:
+    parentToken:
+      type: http
+      scheme: bearer
+      description: Bearer token for parent management operations
+    deviceToken:
+      type: http
+      scheme: bearer
+      description: Long-lived Bearer token for trusted family devices
+    kidToken:
+      type: http
+      scheme: bearer
+      description: Scoped Bearer token for kid practice sessions
+
+  responses:
+    Unauthorized:
+      description: Unauthenticated request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorResponse'
+          example:
+            error: true
+            data: null
+            message: Unauthenticated.
+    Forbidden:
+      description: Token ability or entity mismatch
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorResponse'
+          example:
+            error: true
+            data: null
+            message: Forbidden.
+    NotFound:
+      description: Resource not found or not owned by user
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorResponse'
+          example:
+            error: true
+            data: null
+            message: Resource not found.
+    Conflict:
+      description: Session or question locked or expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorResponse'
+          example:
+            error: true
+            data: null
+            message: Question already locked or session expired.
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorResponse'
+          example:
+            error: true
+            data: null
+            message: The given data was invalid.
+    PracticeLocked:
+      description: Practice locked until pending assigned work is completed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorResponse'
+          example:
+            error: true
+            data: null
+            message: Assigned work must be completed first.
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/StandardErrorResponse'
+          example:
+            error: true
+            data: null
+            message: Too many requests.
+
+  schemas:
+    StandardErrorResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: true
+        data:
+          type: 'null'
+          example: null
+        message:
+          type: string
+          example: Error message description.
+
+    NullResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: 'null'
+          example: null
+        message:
+          type: [string, 'null']
+          example: null
+
+    Parent:
+      type: object
+      required: [id, name, username, has_pin]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Nguyen Van A
+        username:
+          type: string
+          example: parent1
+        has_pin:
+          type: boolean
+          example: true
+
+    ChildCard:
+      type: object
+      required: [id, name, avatar]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Bo
+        avatar:
+          type: string
+          example: fox
+
+    Child:
+      type: object
+      required: [id, name, avatar, grade, textbook, disabled_topic_ids, assigned_first, streak_current, streak_best]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Bo
+        avatar:
+          type: string
+          example: fox
+        grade:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 2
+        textbook:
+          type: string
+          enum: [ket_noi, chan_troi, canh_dieu]
+          example: ket_noi
+        disabled_topic_ids:
+          type: array
+          items:
+            type: integer
+          example: [4]
+        assigned_first:
+          type: boolean
+          example: false
+        streak_current:
+          type: integer
+          example: 3
+        streak_best:
+          type: integer
+          example: 7
+
+    ChildInput:
+      type: object
+      required: [name, avatar, grade, textbook, disabled_topic_ids, assigned_first]
+      properties:
+        name:
+          type: string
+          example: Bo
+        avatar:
+          type: string
+          example: fox
+        grade:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 2
+        textbook:
+          type: string
+          enum: [ket_noi, chan_troi, canh_dieu]
+          example: ket_noi
+        disabled_topic_ids:
+          type: array
+          items:
+            type: integer
+          example: []
+        assigned_first:
+          type: boolean
+          default: false
+          example: false
+
+    ChildInputPartial:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Bo
+        avatar:
+          type: string
+          example: cat
+        grade:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 2
+        textbook:
+          type: string
+          enum: [ket_noi, chan_troi, canh_dieu]
+          example: ket_noi
+        disabled_topic_ids:
+          type: array
+          items:
+            type: integer
+          example: [3]
+        assigned_first:
+          type: boolean
+          example: true
+
+    Topic:
+      type: object
+      required: [id, grade, code, name, parent_id, is_leaf]
+      properties:
+        id:
+          type: integer
+          example: 5
+        grade:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 2
+        code:
+          type: string
+          example: g2.add_sub_100_nocarry
+        name:
+          type: string
+          example: Cộng trừ không nhớ phạm vi 100
+        parent_id:
+          type: [integer, 'null']
+          example: 2
+        is_leaf:
+          type: boolean
+          example: true
+        level:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 5
+          example: 2
+
+    AssignmentCard:
+      type: object
+      required: [id, title, question_count, due_at, is_new]
+      properties:
+        id:
+          type: integer
+          example: 3
+        title:
+          type: string
+          example: Ôn tập phép cộng có nhớ
+        question_count:
+          type: integer
+          example: 10
+        due_at:
+          type: [string, 'null']
+          format: date-time
+          example: '2026-10-30T23:59:59+07:00'
+        is_new:
+          type: boolean
+          example: true
+
+    KidHome:
+      type: object
+      required: [child, pending_assignments, streak_current, practice_locked]
+      properties:
+        child:
+          $ref: '#/components/schemas/Child'
+        pending_assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentCard'
+        streak_current:
+          type: integer
+          example: 3
+        practice_locked:
+          type: boolean
+          example: false
+
+    AssignmentInput:
+      type: object
+      required: [child_id, title, topic_ids]
+      properties:
+        child_id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Ôn tập phép nhân 2 và 5
+        topic_ids:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+          example: [6]
+        question_count:
+          type: integer
+          minimum: 5
+          maximum: 30
+          default: 10
+          example: 10
+        difficulty:
+          type: string
+          enum: [adaptive, easy, medium, hard]
+          default: adaptive
+          example: adaptive
+        due_at:
+          type: [string, 'null']
+          format: date-time
+          example: '2026-10-31T20:00:00+07:00'
+        time_limit_seconds:
+          type: [integer, 'null']
+          minimum: 60
+          maximum: 3600
+          example: 900
+        recurrence:
+          type: string
+          enum: [none, daily]
+          default: none
+          example: none
+
+    AssignmentInputPartial:
+      type: object
+      properties:
+        title:
+          type: string
+          example: Ôn tập nâng cao
+        topic_ids:
+          type: array
+          minItems: 1
+          items:
+            type: integer
+          example: [6, 7]
+        question_count:
+          type: integer
+          minimum: 5
+          maximum: 30
+          example: 15
+        difficulty:
+          type: string
+          enum: [adaptive, easy, medium, hard]
+          example: medium
+        due_at:
+          type: [string, 'null']
+          format: date-time
+          example: '2026-10-31T20:00:00+07:00'
+        time_limit_seconds:
+          type: [integer, 'null']
+          minimum: 60
+          maximum: 3600
+          example: 1200
+        recurrence:
+          type: string
+          enum: [none, daily]
+          example: daily
+
+    Assignment:
+      allOf:
+        - $ref: '#/components/schemas/AssignmentInput'
+        - type: object
+          required: [id, created_at]
+          properties:
+            id:
+              type: integer
+              example: 5
+            created_at:
+              type: string
+              format: date-time
+              example: '2026-10-27T10:00:00+07:00'
+
+    ArithmeticPrompt:
+      type: object
+      required: [type, text, input]
+      properties:
+        type:
+          type: string
+          enum: [arithmetic]
+          example: arithmetic
+        text:
+          type: string
+          example: '37 + 48 = ?'
+        input:
+          type: string
+          enum: [number, decimal, fraction]
+          example: number
+
+    ComparisonPrompt:
+      type: object
+      required: [type, left, right, choices]
+      properties:
+        type:
+          type: string
+          enum: [comparison]
+          example: comparison
+        left:
+          type: string
+          example: '45 + 18'
+        right:
+          type: string
+          example: '60'
+        choices:
+          type: array
+          items:
+            type: string
+          example: ['>', '<', '=']
+
+    WordProblemPrompt:
+      type: object
+      required: [type, text, unit, input]
+      properties:
+        type:
+          type: string
+          enum: [word_problem]
+          example: word_problem
+        text:
+          type: string
+          example: Lan có 24 cái kẹo, mẹ cho thêm 15 cái kẹo. Hỏi Lan có tất cả bao nhiêu cái kẹo?
+        unit:
+          type: string
+          example: cái kẹo
+        input:
+          type: string
+          enum: [number]
+          example: number
+
+    CubeCountPrompt:
+      type: object
+      required: [type, heights]
+      properties:
+        type:
+          type: string
+          enum: [cube_count]
+          example: cube_count
+        heights:
+          type: array
+          items:
+            type: array
+            items:
+              type: integer
+          example:
+            - [2, 1, 0]
+            - [1, 1, 3]
+
+    Prompt:
+      oneOf:
+        - $ref: '#/components/schemas/ArithmeticPrompt'
+        - $ref: '#/components/schemas/ComparisonPrompt'
+        - $ref: '#/components/schemas/WordProblemPrompt'
+        - $ref: '#/components/schemas/CubeCountPrompt'
+      discriminator:
+        propertyName: type
+
+    QuestionView:
+      type: object
+      required: [id, position, topic_id, prompt, attempts, state]
+      properties:
+        id:
+          type: integer
+          example: 42
+        position:
+          type: integer
+          example: 1
+        topic_id:
+          type: integer
+          example: 5
+        prompt:
+          $ref: '#/components/schemas/Prompt'
+        attempts:
+          type: integer
+          minimum: 0
+          maximum: 2
+          example: 0
+        state:
+          type: string
+          enum: [open, correct, revealed]
+          example: open
+
+    PracticeSession:
+      type: object
+      required: [id, assignment_id, expires_at, questions]
+      properties:
+        id:
+          type: integer
+          example: 10
+        assignment_id:
+          type: [integer, 'null']
+          example: null
+        expires_at:
+          type: [string, 'null']
+          format: date-time
+          example: null
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuestionView'
+
+    RevealedAnswer:
+      type: object
+      required: [answer, solution]
+      properties:
+        answer:
+          type: string
+          example: '85'
+        solution:
+          type: array
+          items:
+            type: string
+          example:
+            - '30 + 40 = 70'
+            - '7 + 8 = 15'
+            - '70 + 15 = 85'
+            - '37 + 48 = 85'
+
+    AnswerResult:
+      type: object
+      required: [correct, attempts, state, hint, revealed]
+      properties:
+        correct:
+          type: boolean
+          example: false
+        attempts:
+          type: integer
+          minimum: 1
+          maximum: 2
+          example: 1
+        state:
+          type: string
+          enum: [open, correct, revealed]
+          example: open
+        hint:
+          type: [array, 'null']
+          items:
+            type: string
+          example:
+            - '30 + 40 = 70'
+            - '7 + 8 = 15'
+            - '70 + 15 = ?'
+        revealed:
+          oneOf:
+            - $ref: '#/components/schemas/RevealedAnswer'
+            - type: 'null'
+
+    Reward:
+      type: object
+      required: [id, sticker_key, earned_at]
+      properties:
+        id:
+          type: integer
+          example: 1
+        sticker_key:
+          type: string
+          example: star-gold
+        earned_at:
+          type: string
+          format: date-time
+          example: '2026-10-27T14:30:00+07:00'
+
+    SessionSummary:
+      type: object
+      required: [session_id, first_try_correct, total, duration_seconds, reward, streak_current]
+      properties:
+        session_id:
+          type: integer
+          example: 10
+        first_try_correct:
+          type: integer
+          example: 8
+        total:
+          type: integer
+          example: 10
+        duration_seconds:
+          type: integer
+          example: 320
+        reward:
+          oneOf:
+            - $ref: '#/components/schemas/Reward'
+            - type: 'null'
+        streak_current:
+          type: integer
+          example: 4
+
+    ScoreLine:
+      type: object
+      required: [session_id, first_try_correct, total, duration_seconds, completed_at]
+      properties:
+        session_id:
+          type: integer
+          example: 10
+        first_try_correct:
+          type: integer
+          example: 8
+        total:
+          type: integer
+          example: 10
+        duration_seconds:
+          type: integer
+          example: 320
+        completed_at:
+          type: string
+          format: date-time
+          example: '2026-10-27T14:30:00+07:00'
+
+    AssignmentResult:
+      type: object
+      required: [assignment_id, title, attempts_count, first, latest]
+      properties:
+        assignment_id:
+          type: integer
+          example: 5
+        title:
+          type: string
+          example: Ôn tập phép cộng có nhớ
+        attempts_count:
+          type: integer
+          example: 2
+        first:
+          oneOf:
+            - $ref: '#/components/schemas/ScoreLine'
+            - type: 'null'
+        latest:
+          oneOf:
+            - $ref: '#/components/schemas/ScoreLine'
+            - type: 'null'
+
+    WeakSkill:
+      type: object
+      required: [topic_id, name, first_try_accuracy, answered, level]
+      properties:
+        topic_id:
+          type: integer
+          example: 6
+        name:
+          type: string
+          example: Cộng có nhớ phạm vi 100
+        first_try_accuracy:
+          type: number
+          minimum: 0
+          maximum: 1
+          example: 0.55
+        answered:
+          type: integer
+          minimum: 5
+          example: 9
+        level:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 2
+
+    SessionReviewQuestion:
+      allOf:
+        - $ref: '#/components/schemas/QuestionView'
+        - type: object
+          required: [answer, solution, given_answers, first_try_correct]
+          properties:
+            answer:
+              type: string
+              example: '85'
+            solution:
+              type: array
+              items:
+                type: string
+              example:
+                - '30 + 40 = 70'
+                - '7 + 8 = 15'
+                - '70 + 15 = 85'
+                - '37 + 48 = 85'
+            given_answers:
+              type: array
+              items:
+                type: string
+              example: ['75', '85']
+            first_try_correct:
+              type: [boolean, 'null']
+              example: false
+
+    SessionReview:
+      type: object
+      required: [id, assignment_id, expires_at, completed_at, first_try_correct, total, questions]
+      properties:
+        id:
+          type: integer
+          example: 10
+        assignment_id:
+          type: [integer, 'null']
+          example: null
+        expires_at:
+          type: [string, 'null']
+          format: date-time
+          example: null
+        completed_at:
+          type: [string, 'null']
+          format: date-time
+          example: '2026-10-27T14:30:00+07:00'
+        first_try_correct:
+          type: integer
+          example: 8
+        total:
+          type: integer
+          example: 10
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionReviewQuestion'
+
+    LoginResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: object
+          required: [parent_token, device_token, parent]
+          properties:
+            parent_token:
+              type: string
+              example: 1|aBcDeFgHiJkLmNoP...
+            device_token:
+              type: string
+              example: 2|qRsTuVwXyZ123456...
+            parent:
+              $ref: '#/components/schemas/Parent'
+        message:
+          type: [string, 'null']
+          example: null
+
+    UnlockResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: object
+          required: [parent_token]
+          properties:
+            parent_token:
+              type: string
+              example: 3|nEwPaReNtToKeN...
+        message:
+          type: [string, 'null']
+          example: null
+
+    ChildCardListResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChildCard'
+        message:
+          type: [string, 'null']
+          example: null
+
+    StartKidSessionResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: object
+          required: [kid_token, child]
+          properties:
+            kid_token:
+              type: string
+              example: 4|kIdSeSsIoNtOkEn...
+            child:
+              $ref: '#/components/schemas/ChildCard'
+        message:
+          type: [string, 'null']
+          example: null
+
+    KidHomeResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/KidHome'
+        message:
+          type: [string, 'null']
+          example: null
+
+    TopicListResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Topic'
+        message:
+          type: [string, 'null']
+          example: null
+
+    RewardListResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reward'
+        message:
+          type: [string, 'null']
+          example: null
+
+    PracticeSessionResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/PracticeSession'
+        message:
+          type: [string, 'null']
+          example: null
+
+    AnswerResultResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/AnswerResult'
+        message:
+          type: [string, 'null']
+          example: null
+
+    SessionSummaryResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/SessionSummary'
+        message:
+          type: [string, 'null']
+          example: null
+
+    ChildListResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Child'
+        message:
+          type: [string, 'null']
+          example: null
+
+    ChildDetailResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/Child'
+        message:
+          type: [string, 'null']
+          example: null
+
+    AssignmentListResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assignment'
+        message:
+          type: [string, 'null']
+          example: null
+
+    AssignmentDetailResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/Assignment'
+        message:
+          type: [string, 'null']
+          example: null
+
+    AssignmentResultListResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AssignmentResult'
+        message:
+          type: [string, 'null']
+          example: null
+
+    WeakSkillListResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeakSkill'
+        message:
+          type: [string, 'null']
+          example: null
+
+    SessionReviewResponse:
+      type: object
+      required: [error, data, message]
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          $ref: '#/components/schemas/SessionReview'
+        message:
+          type: [string, 'null']
+          example: null
+

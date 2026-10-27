@@ -36,3 +36,42 @@ We enforce a strict **BUILD vs. RUN** separation of responsibilities:
 - **Positive:** Service repositories remain self-contained for building container images and can be deployed independently to any container orchestrator.
 - **Positive:** Secrets live in one gitignored `.env` file at the master root.
 - **Trade-off:** Running a service locally with its backing infrastructure requires cloning the master repo (or running `docker build` + `docker run` manually).
+
+---
+
+## ADR-0002: Kids Math Practice Embedded in FE Route and CMS Plugin Without New Service
+
+- **Date:** 2026-10-27
+- **Status:** Accepted
+
+### Context
+The kids math practice feature requires:
+- An interactive web application for children (with 3D visual rewards and interactive cube counting) and a management portal for parents.
+- Content authoring, parent/child account management, curriculum trees, question generation, and progress tracking backend.
+
+We evaluated whether to create a dedicated backend microservice (`services/kids` in Go/Python/Node) or to integrate within existing services:
+- `services/fe` (Next.js 14 App Router, React Three Fiber) is already configured for rich 3D graphics, responsive layouts, and Tailwind styling.
+- `services/cms` (Botble CMS, Laravel 13, PHP 8.4) already provides robust administrative CRUD, Sanctum token authentication, relational MySQL persistence, and REST API foundation.
+
+### Decision
+1. **Frontend Integration**:
+   - The kids math practice experience lives inside `services/fe` under the `/kids` route (for children) and `/kids/parent` (for parents).
+   - No separate frontend service or repository is created.
+   - Base paths are encapsulated so they can be adapted or moved if necessary.
+
+2. **Backend Integration**:
+   - The kids math domain is implemented as a self-contained Botble CMS plugin (`services/cms/platform/plugins/kids`).
+   - Pure PHP domain logic (generators, answer matching, adaptive difficulty, review scheduling) lives in `src/Engine/` decoupled from database and framework dependencies.
+   - REST endpoints are exposed under `/api/v1/kids/*` using Sanctum tokens (`parent`, `device`, `kid`).
+   - Administrative management (topics, templates, parents, reports) integrates into the Botble admin interface via standard form and table builders.
+
+3. **No New Compose Services**:
+   - No additional Docker containers or microservices are added to `compose.yaml`.
+   - Communication between `fe` and `cms` flows through existing Nginx gateway / Next.js internal API rewrites.
+
+### Consequences
+- **Positive:** Reuses existing infrastructure, authentication primitives, database, and admin UI without increasing Docker Compose operational footprint or host memory overhead.
+- **Positive:** Pure domain engine remains highly testable via fast unit tests without requiring database booting.
+- **Positive:** Shared OpenAPI contract (`contracts/openapi/kids.v1.yaml`) establishes a clear inter-service boundary between `fe` and `cms`.
+- **Trade-off:** CMS database handles kids data alongside editorial content (mitigated by strict table prefixing `kids_*` and clean plugin isolation).
+
