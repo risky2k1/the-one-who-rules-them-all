@@ -1,0 +1,562 @@
+openapi: 3.1.0
+info:
+  title: Portfolio & CMS Public REST API
+  description: Public and client-facing REST APIs for the 3D Portfolio experience and Botble CMS.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8081/api/v1
+    description: Local development via Nginx Gateway
+  - url: /api/v1
+    description: Next.js internal proxy rewrite
+
+paths:
+  /portfolio:
+    get:
+      summary: Get complete aggregated portfolio data bundle
+      description: Returns persona, about, destinations, skill groups, projects, experiences, and contact channels in a single response for high-performance 3D scene initialization.
+      operationId: getPortfolioBundle
+      responses:
+        '200':
+          description: Successful portfolio bundle retrieval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioBundleResponse'
+
+  /portfolio/projects:
+    get:
+      summary: List all portfolio projects
+      operationId: listPortfolioProjects
+      responses:
+        '200':
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectListResponse'
+
+  /portfolio/projects/{slug}:
+    get:
+      summary: Get project detail by slug
+      operationId: getPortfolioProjectBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+          example: aethergate-api-mesh
+      responses:
+        '200':
+          description: Project detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectDetailResponse'
+        '404':
+          description: Project not found
+
+  /portfolio/skills:
+    get:
+      summary: List skill groups and nested skills
+      operationId: listPortfolioSkills
+      responses:
+        '200':
+          description: List of skill groups
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SkillGroupListResponse'
+
+  /portfolio/experiences:
+    get:
+      summary: List career experiences
+      operationId: listPortfolioExperiences
+      responses:
+        '200':
+          description: List of career experiences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperienceListResponse'
+
+  /contacts:
+    post:
+      summary: Submit a new contact message
+      description: Submits a visitor message from the 3D portfolio contact card to the Botble CMS contact inbox.
+      operationId: submitContactMessage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactSubmissionRequest'
+      responses:
+        '200':
+          description: Message submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardApiResponse'
+        '422':
+          description: Validation error
+
+components:
+  schemas:
+    StandardApiResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: boolean
+          example: false
+        data:
+          type: object
+          nullable: true
+        message:
+          type: string
+          nullable: true
+          example: "We received your message and will contact you soon!"
+
+    PortfolioBundleResponse:
+      type: object
+      required:
+        - error
+        - data
+      properties:
+        error:
+          type: boolean
+          example: false
+        message:
+          type: string
+          nullable: true
+        data:
+          $ref: '#/components/schemas/PortfolioData'
+
+    PortfolioData:
+      type: object
+      required:
+        - persona
+        - about
+        - destinations
+        - skillGroups
+        - projects
+        - experiences
+        - contact
+      properties:
+        isDemonstrationContent:
+          type: boolean
+          example: true
+        demonstrationNotice:
+          type: string
+          example: "DEMONSTRATION PORTFOLIO: All profile details are sample demonstration content."
+        persona:
+          $ref: '#/components/schemas/Persona'
+        about:
+          $ref: '#/components/schemas/AboutSection'
+        destinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationConfig'
+        skillGroups:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillGroup'
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectItem'
+        experiences:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperienceItem'
+        contact:
+          $ref: '#/components/schemas/ContactSection'
+
+    Persona:
+      type: object
+      required:
+        - name
+        - role
+        - specialization
+        - location
+        - availabilityBadge
+        - introHeadline
+        - introLead
+        - introHighlights
+      properties:
+        name:
+          type: string
+          example: "Sora Lindqvist (Demo Persona)"
+        role:
+          type: string
+          example: "Staff Platform & Cloud Infrastructure Engineer"
+        specialization:
+          type: string
+          example: "Distributed Backend APIs • Kubernetes Fabric • GitOps CI/CD • OpenTelemetry"
+        location:
+          type: string
+          example: "Stockholm / Remote (Sample Profile)"
+        availabilityBadge:
+          type: string
+          example: "Demo Showcase • Interactive 3D World"
+        introHeadline:
+          type: string
+          example: "Architecting calm, self-healing cloud platforms & low-latency API meshes."
+        introLead:
+          type: string
+        introHighlights:
+          type: array
+          items:
+            type: object
+            required: [label, value]
+            properties:
+              label: { type: string }
+              value: { type: string }
+
+    AboutSection:
+      type: object
+      required:
+        - headline
+        - narrative
+        - pillars
+      properties:
+        headline:
+          type: string
+        narrative:
+          type: array
+          items:
+            type: string
+        pillars:
+          type: array
+          items:
+            type: object
+            required: [title, description, metric]
+            properties:
+              title: { type: string }
+              description: { type: string }
+              metric: { type: string }
+
+    DestinationConfig:
+      type: object
+      required:
+        - id
+        - order
+        - label
+        - shortLabel
+        - subtitle
+        - tagline
+        - routeU
+        - lateralOffset
+        - panelSide
+        - accentColor
+        - secondaryColor
+        - emissiveColor
+        - sculptureType
+        - sculptureName
+      properties:
+        id:
+          type: string
+          enum: [intro, about, skills, projects, experience, contact]
+        order:
+          type: integer
+        label:
+          type: string
+        shortLabel:
+          type: string
+        subtitle:
+          type: string
+        tagline:
+          type: string
+        routeU:
+          type: number
+        lateralOffset:
+          type: number
+        panelSide:
+          type: string
+          enum: [left, right]
+        accentColor:
+          type: string
+        secondaryColor:
+          type: string
+        emissiveColor:
+          type: string
+        sculptureType:
+          type: string
+        sculptureName:
+          type: string
+
+    SkillItem:
+      type: object
+      required:
+        - name
+        - level
+        - context
+      properties:
+        name:
+          type: string
+        level:
+          type: string
+        context:
+          type: string
+        highlight:
+          type: boolean
+          default: false
+
+    SkillGroup:
+      type: object
+      required:
+        - id
+        - title
+        - badge
+        - accentColor
+        - summary
+        - skills
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        badge:
+          type: string
+        accentColor:
+          type: string
+        summary:
+          type: string
+        skills:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillItem'
+
+    ProjectMetric:
+      type: object
+      required:
+        - label
+        - value
+      properties:
+        label:
+          type: string
+        value:
+          type: string
+
+    ProjectLink:
+      type: object
+      required:
+        - label
+        - configKey
+        - displayTarget
+        - kind
+      properties:
+        label:
+          type: string
+        configKey:
+          type: string
+        displayTarget:
+          type: string
+        kind:
+          type: string
+          enum: [demo, repository, architecture]
+
+    ProjectItem:
+      type: object
+      required:
+        - id
+        - title
+        - category
+        - shortSummary
+        - overview
+        - role
+        - timeline
+        - accentColor
+        - secondaryColor
+        - architectureDiagramType
+        - challenges
+        - outcomes
+        - techStack
+        - metrics
+        - links
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        shortSummary:
+          type: string
+        overview:
+          type: string
+        role:
+          type: string
+        timeline:
+          type: string
+        accentColor:
+          type: string
+        secondaryColor:
+          type: string
+        architectureDiagramType:
+          type: string
+          enum: [gateway_mesh, multi_region_k8s, gitops_pipeline]
+        challenges:
+          type: array
+          items:
+            type: string
+        outcomes:
+          type: array
+          items:
+            type: string
+        techStack:
+          type: array
+          items:
+            type: string
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectMetric'
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectLink'
+
+    ExperienceItem:
+      type: object
+      required:
+        - id
+        - period
+        - role
+        - organization
+        - organizationNote
+        - location
+        - summary
+        - highlights
+        - technologies
+      properties:
+        id:
+          type: string
+        period:
+          type: string
+        role:
+          type: string
+        organization:
+          type: string
+        organizationNote:
+          type: string
+        location:
+          type: string
+        summary:
+          type: string
+        highlights:
+          type: array
+          items:
+            type: string
+        technologies:
+          type: array
+          items:
+            type: string
+
+    ContactChannel:
+      type: object
+      required:
+        - id
+        - label
+        - value
+        - note
+        - actionType
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        value:
+          type: string
+        note:
+          type: string
+        actionType:
+          type: string
+          enum: [copy, jump_projects, return_intro]
+
+    ContactSection:
+      type: object
+      required:
+        - headline
+        - subtitle
+        - availabilityNote
+        - channels
+      properties:
+        headline:
+          type: string
+        subtitle:
+          type: string
+        availabilityNote:
+          type: string
+        channels:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContactChannel'
+
+    ContactSubmissionRequest:
+      type: object
+      required:
+        - name
+        - email
+        - content
+      properties:
+        name:
+          type: string
+          example: "Alex Rivera"
+        email:
+          type: string
+          format: email
+          example: "alex.rivera@example.com"
+        subject:
+          type: string
+          example: "Architecture Consultation Inquiry"
+        content:
+          type: string
+          example: "Hello Sora, we would love to connect regarding Kubernetes platform engineering."
+        agree_terms_and_policy:
+          type: boolean
+          default: true
+          example: true
+
+    ProjectListResponse:
+      type: object
+      required: [error, data]
+      properties:
+        error: { type: boolean, example: false }
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectItem'
+
+    ProjectDetailResponse:
+      type: object
+      required: [error, data]
+      properties:
+        error: { type: boolean, example: false }
+        data:
+          $ref: '#/components/schemas/ProjectItem'
+
+    SkillGroupListResponse:
+      type: object
+      required: [error, data]
+      properties:
+        error: { type: boolean, example: false }
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SkillGroup'
+
+    ExperienceListResponse:
+      type: object
+      required: [error, data]
+      properties:
+        error: { type: boolean, example: false }
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExperienceItem'
+
