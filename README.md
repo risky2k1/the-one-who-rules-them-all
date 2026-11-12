@@ -15,6 +15,7 @@ The project follows a strict **BUILD vs. RUN** separation:
 | `the-one-who-rules-them-all` | `/` | Master Orchestrator, Gateway & Infra | Docker Compose v2, Nginx, Make | `8080` | *(core)* |
 | `the-one-who-dutifully-keeps` | `services/cms` | CMS & Editorial Admin Backend | PHP 8.4 / Laravel 13 (Botble CMS) | `8080` | *(core)* |
 | `the-one-who-paints-the-world` | `services/fe` | Public Web Storefront & Interactive 3D Portfolio | TypeScript / Next.js 14 (React Three Fiber) | `3000` | `fe` |
+| `the-one-who-rebuilds-the-keep` | `services/new-cms` | Modular CMS (core, plugins, admin) | TypeScript / NestJS 12 (Fastify, Kysely) | `8084` | `keep` |
 | *(reserved)* | `services/go` | High-Throughput Core API | Go | `8081` | `go` |
 | *(reserved)* | `services/rust` | Compute / Worker Service | Rust | `8082` | `rust` |
 | *(reserved)* | `services/nosql` | Document / NoSQL API Service | Polyglot / NoSQL | `8083` | `nosql` |
@@ -49,6 +50,19 @@ make artisan cmd="migrate"
 ```
 Visit **`http://localhost:8080`** (admin panel at **`http://localhost:8080/admin`**).
 
+### 5. Running Keep CMS (Modular CMS)
+Start the Keep service alongside the core stack:
+```bash
+make up-keep
+```
+> **Note:** If your MySQL volume already exists from a previous run, the init scripts in `infra/mysql/init/` will not run automatically. Run this command once to provision the database:
+> ```bash
+> docker compose exec mysql mysql -uroot -p"$DB_ROOT_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS keep_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL ON keep_db.* TO '$DB_USERNAME'@'%';"
+> ```
+Keep endpoints:
+- Health check: `http://localhost:8084/health`
+- Hello plugin API: `http://localhost:8084/api/v1/hello`
+
 ---
 
 ## Development Workflow
@@ -58,12 +72,14 @@ Run `make` (or `make help`) to view all available orchestration commands:
 | Command | Description |
 | :--- | :--- |
 | `make up` | Build (if needed) and start the development stack in detached mode |
+| `make up-keep` | Start the stack plus the keep CMS profile |
 | `make down` | Stop and remove containers and networks |
 | `make restart` | Restart all running containers |
 | `make logs` | Tail container logs (filter a single service with `make logs s=cms`) |
 | `make ps` | Show container status and healthchecks |
 | `make build` | Rebuild service container images |
 | `make shell-cms` | Open an interactive `sh` shell inside the `cms` container |
+| `make shell-keep` | Open an interactive `sh` shell inside the `keep` container |
 | `make artisan cmd="migrate"` | Run a Laravel Artisan command inside `cms` |
 | `make composer cmd="dump-autoload"` | Run a Composer command inside `cms` |
 | `make sync` | Pull latest commits for all git submodules |

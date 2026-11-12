@@ -6,3 +6,7 @@
 	path = services/fe
 	url = git@github.com:risky2k1/the-one-who-paints-the-world.git
 	branch = develop
+[submodule "services/new-cms"]
+	path = services/new-cms
+	url = git@github.com:risky2k1/the-one-who-rebuilds-the-keep.git
+	branch = develop

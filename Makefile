@@ -13,13 +13,16 @@ ARTISAN_CMD := $(if $(cmd),$(cmd),$(RUN_ARGS))
 COMPOSER_CMD := $(if $(cmd),$(cmd),$(RUN_ARGS))
 PNPM_CMD := $(if $(cmd),$(cmd),$(RUN_ARGS))
 
-.PHONY: help up down restart logs ps build shell-cms artisan composer shell-fe pnpm-fe sync clean
+.PHONY: help up up-keep down restart logs ps build shell-cms artisan composer shell-fe pnpm-fe shell-keep sync clean
 
 help: ## Show available Make targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 up: ## Start the stack in detached mode (default ENV=local)
 	$(COMPOSE) up -d
+
+up-keep: ## Start the stack plus the keep CMS profile
+	$(COMPOSE) --profile keep up -d
 
 down: ## Stop and remove containers and networks
 	$(COMPOSE) down
@@ -53,6 +56,9 @@ shell-fe: ## Open an interactive shell inside the fe container
 pnpm-fe: ## Run a pnpm command in fe (usage: make pnpm-fe test)
 	@if [ -z "$(strip $(PNPM_CMD))" ]; then echo "Usage: make pnpm-fe <command> (or cmd=\"<command>\")"; exit 1; fi
 	$(COMPOSE) exec fe pnpm $(PNPM_CMD)
+
+shell-keep: ## Open an interactive shell inside the keep container
+	$(COMPOSE) exec keep sh
 
 sync: ## Initialize and update all git submodules to latest remote commit
 	git submodule update --init --recursive --remote

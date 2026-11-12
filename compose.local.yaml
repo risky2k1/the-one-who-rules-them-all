@@ -33,3 +33,10 @@ services:
       - ./services/fe:/app
       - /app/node_modules
       - /app/.next
+
+  keep:
+    build:
+      target: dev
+    volumes:
+      - ./services/new-cms:/app
+      - /app/node_modules
